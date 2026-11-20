@@ -195,17 +195,52 @@ local function list(a)
   end
   I.PopStyleVar(ctx)
 end
+local function category_context(a,c)
+  local I,ctx=a.I,a.ctx
+  if not I.BeginPopupContextItem(ctx,'category-menu:'..c.id) then return end
+  local siblings=M.children(a.library,c.parentId); local index
+  for i,v in ipairs(siblings) do if v.id==c.id then index=i end end
+  local children=M.children(a.library,c.id)
+  if item(a,'rename-category','Rename...') then
+    a.rename_id=c.id; a.rename_name=c.name; a.open_rename=true; a.rename_focus=true
+  end
+  I.BeginDisabled(ctx,index==1)
+  if item(a,'move-left:'..c.id,'Move left') then a:edit(function(s) M.reorder_category(s,c.id,siblings[index-1].id,true) end) end
+  I.EndDisabled(ctx)
+  I.BeginDisabled(ctx,index==#siblings)
+  if item(a,'move-right:'..c.id,'Move right') then a:edit(function(s) M.reorder_category(s,c.id,siblings[index+1].id,false) end) end
+  I.EndDisabled(ctx)
+  if #children>0 then
+    if item(a,'sort-created','Sort subcategories: creation order') then a:edit(function(s) M.sort_categories(s,c.id,'created') end) end
+    if item(a,'sort-alpha','Sort subcategories: alphabetically') then a:edit(function(s) M.sort_categories(s,c.id,'alphabetical') end) end
+  end
+  if item(a,'new-subcategory:'..c.id,'New subcategory...') then
+    a.new_category=''; a.new_category_parent=c.id; a.open_new_category=true
+  end
+  I.BeginDisabled(ctx,#children>0)
+  if item(a,'delete-category:'..c.id,'Delete...') then a.delete_id=c.id; a.open_delete=true end
+  if #children>0 and I.IsItemHovered(ctx,I.HoveredFlags_AllowWhenDisabled) then
+    I.SetTooltip(ctx,'Delete subcategories first.')
+  end
+  I.EndDisabled(ctx)
+  I.EndPopup(ctx)
+end
 local function folder_items(a,parent)
   local I,ctx=a.I,a.ctx
   for _,c in ipairs(M.children(a.library,parent)) do
     local children=M.children(a.library,c.id)
     if #children>0 then
-      local expanded=I.BeginMenu(ctx,c.name..'##'..c.id); record(a,'folder:'..c.id)
+      local expanded=I.BeginMenu(ctx,c.name..'##'..c.id)
       if expanded then
         if item(a,'cat:'..c.id,'All '..c.name) then a:select_category(c.id) end
         I.Separator(ctx); folder_items(a,c.id); I.EndMenu(ctx)
       end
-    elseif item(a,'cat:'..c.id,c.name,a.category==c.id) then a:select_category(c.id) end
+      record(a,'folder:'..c.id); category_context(a,c)
+    else
+      local clicked=item(a,'cat:'..c.id,c.name..'##'..c.id,a.category==c.id)
+      category_context(a,c)
+      if clicked then a:select_category(c.id) end
+    end
   end
 end
 local function category_bar(a)
@@ -240,27 +275,52 @@ local function category_bar(a)
       end
       first_tab=false
       if active then I.PushStyleColor(ctx,I.Col_Button,0x4b4b4bff) end
-      if button(a,key,label,width,30) then callback() end
+      if button(a,key,label..'##'..key,width,30) and not a.drag_source then callback() end
       if active then I.PopStyleColor(ctx) end
     end
     tab('collection','All',a.category=='' and not a.show_all,function() a:select_category('') end)
     tab('all','All FX',a.show_all,function() a:select_category('',true) end)
+    local drag_target
     for _,c in ipairs(roots) do
       local children=M.children(a.library,c.id)
       local popup='folder-popup:'..c.id
       tab('cat:'..c.id,c.name..(#children>0 and '  ▾' or ''),selected_root==c.id,function()
         if #children>0 then I.OpenPopup(ctx,popup) else a:select_category(c.id) end
       end)
-      local popup_x=I.GetItemRectMin(ctx)
-      local _,popup_y=I.GetItemRectMax(ctx)
-      I.SetNextWindowPos(ctx,popup_x,popup_y+4,I.Cond_Appearing)
+      local x,y=I.GetItemRectMin(ctx); local xx,yy=I.GetItemRectMax(ctx)
+      if I.IsItemClicked(ctx,I.MouseButton_Left) and (I.GetKeyMods(ctx)&I.Mod_Ctrl)~=0 then a.drag_source=c.id end
+      if a.drag_source and I.IsMouseDragging(ctx,I.MouseButton_Left) then a.drag_started=true end
+      local mx,my=I.GetMousePos(ctx)
+      if a.drag_started and mx>=x and mx<=xx and my>=y and my<=yy then
+        local before=mx<(x+xx)/2
+        drag_target={id=c.id,before=before}
+        local marker=before and x or xx
+        I.DrawList_AddLine(I.GetWindowDrawList(ctx),marker,y,marker,yy,0x13bd99ff,3)
+      end
+      category_context(a,c)
+      I.SetNextWindowPos(ctx,x,yy+4,I.Cond_Appearing)
       if I.BeginPopup(ctx,popup) then
         if item(a,'cat:'..c.id..':all','All '..c.name,a.category==c.id) then a:select_category(c.id) end
         I.Separator(ctx); folder_items(a,c.id); I.EndPopup(ctx)
       end
     end
-    I.EndChild(ctx)
+    if a.drag_source and I.IsMouseReleased(ctx,I.MouseButton_Left) then
+      if a.drag_started and drag_target and drag_target.id~=a.drag_source then
+        a:edit(function(s) M.reorder_category(s,a.drag_source,drag_target.id,drag_target.before) end)
+      end
+      a.drag_source=nil; a.drag_started=false
+    end
+    if a.options.observe then
+      local x,y=I.GetWindowPos(ctx); local w,h=I.GetWindowSize(ctx)
+      a.rects['strip-background']={x=x+w-14,y=y+h-10,w=8,h=6}
+    end
+    if I.BeginPopupContextWindow(ctx,'strip-options',I.PopupFlags_MouseButtonRight|I.PopupFlags_NoOpenOverItems) then
+      if item(a,'strip-sort-created','Sort categories: creation order') then a:edit(function(s) M.sort_categories(s,'','created') end) end
+      if item(a,'strip-sort-alpha','Sort categories: alphabetically') then a:edit(function(s) M.sort_categories(s,'','alphabetical') end) end
+      I.EndPopup(ctx)
+    end
   end
+  I.EndChild(ctx)
   I.PopStyleVar(ctx); I.PopStyleColor(ctx)
 end
 local function header(a)
@@ -290,18 +350,58 @@ local function header(a)
 end
 local function popups(a)
   local I,ctx=a.I,a.ctx
-  if a.open_new_category then I.OpenPopup(ctx,'New category'); a.open_new_category=false end
+  if a.open_new_category then
+    I.OpenPopup(ctx,'New category'); a.open_new_category=false
+    if a.new_category_parent==nil then a.new_category_parent=a.category end
+  end
   if I.BeginPopup(ctx,'New category') then
     local c; c,a.new_category=I.InputText(ctx,'Name',a.new_category)
     record(a,'category-name'); a.category_name_active=I.IsItemActive(ctx)
-    if a.category~='' then I.TextDisabled(ctx,'Parent: '..M.category_path(a.library,a.category)) end
+    if a.new_category_parent~='' then I.TextDisabled(ctx,'Parent: '..M.category_path(a.library,a.new_category_parent)) end
     if button(a,'create-category','Create',90,0) then
-      if a:edit(function(state) M.add_category(state,a.new_category,a.category) end) then
-        a.new_category=''; a.focus=true; I.CloseCurrentPopup(ctx)
+      if a:edit(function(state) M.add_category(state,a.new_category,a.new_category_parent) end) then
+        a.new_category=''; a.new_category_parent=nil; a.focus=true; I.CloseCurrentPopup(ctx)
       end
     end
     I.SameLine(ctx)
-    if button(a,'cancel-category','Cancel',90,0) then a.focus=true; I.CloseCurrentPopup(ctx) end
+    if button(a,'cancel-category','Cancel',90,0) then a.new_category_parent=nil; a.focus=true; I.CloseCurrentPopup(ctx) end
+    I.EndPopup(ctx)
+  end
+  if a.open_rename then I.OpenPopup(ctx,'Rename category'); a.open_rename=false end
+  if I.BeginPopupModal(ctx,'Rename category',nil,I.WindowFlags_AlwaysAutoResize) then
+    if a.rename_focus then I.SetKeyboardFocusHere(ctx); a.rename_focus=false end
+    local enter=I.IsKeyPressed(ctx,I.Key_Enter)
+    local changed; changed,a.rename_name=I.InputText(ctx,'Name##rename',a.rename_name)
+    record(a,'rename-input')
+    local save=button(a,'rename-save','Save',90,0)
+    I.SameLine(ctx)
+    local cancel=button(a,'rename-cancel','Cancel',90,0)
+    if cancel or I.IsKeyPressed(ctx,I.Key_Escape) then I.CloseCurrentPopup(ctx); a.focus=true
+    elseif save or enter then
+      if a:edit(function(s) M.rename_category(s,a.rename_id,a.rename_name) end) then I.CloseCurrentPopup(ctx); a.focus=true end
+    end
+    if a.status~='' and a.status~='Saved' then I.TextWrapped(ctx,a.status) end
+    I.EndPopup(ctx)
+  end
+  if a.open_delete then I.OpenPopup(ctx,'Delete category'); a.open_delete=false end
+  if I.BeginPopupModal(ctx,'Delete category',nil,I.WindowFlags_AlwaysAutoResize) then
+    local count=0
+    for _,p in ipairs(a.library.plugins) do
+      local found=false
+      for _,field in ipairs({'categoryIds','subcategoryIds'}) do for _,id in ipairs(p[field] or {}) do if id==a.delete_id then found=true end end end
+      if found then count=count+1 end
+    end
+    I.TextWrapped(ctx,'Delete '..M.category_path(a.library,a.delete_id)..'?')
+    I.Text(ctx,count..' plugins will lose this membership.')
+    if button(a,'delete-confirm','Delete',90,0) then
+      if a:edit(function(s) M.delete_category(s,a.delete_id) end) then
+        if a.category==a.delete_id then a:select_category('') end
+        I.CloseCurrentPopup(ctx)
+      end
+    end
+    I.SameLine(ctx)
+    if button(a,'delete-cancel','Cancel',90,0) or I.IsKeyPressed(ctx,I.Key_Escape) then I.CloseCurrentPopup(ctx); a.focus=true end
+    if a.status~='' and a.status~='Saved' then I.TextWrapped(ctx,a.status) end
     I.EndPopup(ctx)
   end
   if a.open_assign then I.OpenPopup(ctx,'Add to collection'); a.open_assign=false end
@@ -316,8 +416,8 @@ local function popups(a)
         record(a,'assign-check:'..c.id)
         if changed then a.pending_categories[c.id]=value end
       end
-      I.EndChild(ctx)
     end
+    I.EndChild(ctx)
     I.Separator(ctx)
     if button(a,'confirm-add','Add to collection',170,32) then
       local target=''
@@ -353,11 +453,11 @@ local function footer(a)
     I.TextDisabled(ctx,#a.catalog..' installed FX | '..#a.library.plugins..' in collection')
     I.EndPopup(ctx)
   end
-  if a.status~='' and a.status~='Saved' then I.TextWrapped(ctx,a.status) end
+  if a.status~='' then I.TextWrapped(ctx,a.status) end
 end
 local function body(a)
   local I,ctx=a.I,a.ctx
-  if I.BeginChild(ctx,'results',0,-45) then
+  if I.BeginChild(ctx,'results',0,a.status~='' and -70 or -45) then
     if a.reset_scroll then I.SetScrollY(ctx,0); a.reset_scroll=false end
     if a.options.observe then
       local x,y=I.GetCursorScreenPos(ctx); local w,h=I.GetContentRegionAvail(ctx)
@@ -376,8 +476,8 @@ local function body(a)
     if I.BeginPopupContextWindow(ctx,'background-options',I.PopupFlags_MouseButtonRight|I.PopupFlags_NoOpenOverItems) then
       common_menu(a); I.EndPopup(ctx)
     end
-    I.EndChild(ctx)
   end
+  I.EndChild(ctx)
 end
 function U.frame(a)
   local I,ctx=a.I,a.ctx
@@ -423,8 +523,8 @@ function U.frame(a)
       if a.add_mode then a.add_mode=false; a.focus=true
       elseif a.query~='' then a.query=''; a.focus=true else a.open=false end
     end
-    I.End(ctx)
   end
+  I.End(ctx)
   I.PopStyleColor(ctx,#colors); I.PopStyleVar(ctx,7); I.PopFont(ctx)
   if a.options.observe then a.options.observe(a) end
   return a.open

@@ -144,14 +144,73 @@ function M.unassign(state,p,category)
     for i=#(p[field] or {}),1,-1 do if p[field][i]==category then table.remove(p[field],i) end end
   end
 end
-function M.add_category(state,name,parent)
+local function category(state,id)
+  for _,c in ipairs(state.categories) do if c.id==id then return c end end
+  error('Unknown category')
+end
+local function category_name(name)
   assert(type(name)=='string','Invalid category name')
-  name=name:match('^%s*(.-)%s*$'); assert(#name>0 and #name<=100,'Category name must contain 1-100 bytes')
-  if parent and parent~='' then
-    local found=false; for _,c in ipairs(state.categories) do if c.id==parent then found=true end end
-    assert(found,'Unknown parent')
+  name=name:match('^%s*(.-)%s*$')
+  assert(#name>0 and #name<=100,'Category name must contain 1-100 bytes')
+  return name
+end
+local function creation_orders(state)
+  local maximum=0
+  for i,c in ipairs(state.categories) do
+    if c.createdOrder==nil then c.createdOrder=i end
+    assert(type(c.createdOrder)=='number' and c.createdOrder%1==0,'Invalid creation order')
+    maximum=math.max(maximum,c.createdOrder)
   end
-  local c={id=new_id(state,'cat-'),name=name,order=#state.categories,parentId=parent~='' and parent or nil}
+  return maximum
+end
+local function renumber(siblings)
+  for i,c in ipairs(siblings) do c.order=i-1 end
+end
+function M.add_category(state,name,parent)
+  name=category_name(name)
+  if parent and parent~='' then category(state,parent) end
+  local created=creation_orders(state)+1
+  local c={id=new_id(state,'cat-'),name=name,order=#state.categories,parentId=parent~='' and parent or nil,createdOrder=created}
   state.categories[#state.categories+1]=c; return c
+end
+function M.rename_category(state,id,name)
+  category(state,id).name=category_name(name)
+end
+function M.reorder_category(state,id,target_id,before)
+  local source,target=category(state,id),category(state,target_id)
+  assert((source.parentId or '')==(target.parentId or ''),'Cannot move across parents')
+  local siblings=M.children(state,source.parentId)
+  if id~=target_id then
+    for i,c in ipairs(siblings) do if c.id==id then table.remove(siblings,i); break end end
+    for i,c in ipairs(siblings) do
+      if c.id==target_id then table.insert(siblings,before and i or i+1,source); break end
+    end
+  end
+  renumber(siblings)
+end
+function M.sort_categories(state,parent,mode)
+  parent=parent or ''
+  if parent~='' then category(state,parent) end
+  assert(mode=='created' or mode=='alphabetical','Unknown sort mode')
+  creation_orders(state)
+  local siblings=M.children(state,parent)
+  table.sort(siblings,function(a,b)
+    if mode=='created' then
+      if a.createdOrder~=b.createdOrder then return a.createdOrder<b.createdOrder end
+    else
+      local al,bl=a.name:lower(),b.name:lower()
+      if al~=bl then return al<bl end
+      if a.name~=b.name then return a.name<b.name end
+    end
+    return a.id<b.id
+  end)
+  renumber(siblings)
+end
+function M.delete_category(state,id)
+  local c=category(state,id)
+  assert(#M.children(state,id)==0,'Category has subcategories')
+  for _,p in ipairs(state.plugins) do M.unassign(state,p,id) end
+  for i,v in ipairs(state.categories) do if v.id==id then table.remove(state.categories,i); break end end
+  renumber(M.children(state,c.parentId))
 end
 return M

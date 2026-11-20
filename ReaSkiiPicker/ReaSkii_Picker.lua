@@ -1,5 +1,5 @@
 -- @description ReaSkii Picker: Toggle visual FX browser
--- @version 0.1.1-alpha
+-- @version 0.1.3
 -- @author Arthur Croquebois
 local root=debug.getinfo(1,'S').source:sub(2):match('^(.*[/\\])')
 local section='ReaSkiiPicker'

@@ -2,12 +2,12 @@
 <index version="1" name="ReaSkii Picker">
   <category name="ReaSkiiPicker">
     <reapack name="ReaSkii_Picker.lua" type="script" desc="ReaSkii Picker">
-      <version name="0.1.1-alpha" author="Arthur Kowskii Croquebois" time="2026-11-09T08:37:55Z">
-        <source file="ReaSkii_Picker.lua" hash="1220d3659144c3c7b451ed3359dacf509cf8a0329dbbd93fa6f8c29391c6f814257e" main="main">https://raw.githubusercontent.com/arthurkowskii/ReaSkiiPicker-feed/main/ReaSkiiPicker/ReaSkii_Picker.lua</source>
+      <version name="0.1.3" author="Arthur Kowskii Croquebois" time="2026-11-20T14:11:18Z">
+        <source file="ReaSkii_Picker.lua" hash="1220cc6828b3a6013a6431a155cfdf027af145c96df9a800dcf7b32d5484154fe151" main="main">https://raw.githubusercontent.com/arthurkowskii/ReaSkiiPicker-feed/main/ReaSkiiPicker/ReaSkii_Picker.lua</source>
         <source file="src/host.lua" hash="12206b6b13e9f7c73e6b5518505d563c485b9d1c4dfda083bf741c6c7c90b3396454">https://raw.githubusercontent.com/arthurkowskii/ReaSkiiPicker-feed/main/ReaSkiiPicker/src/host.lua</source>
-        <source file="src/model.lua" hash="1220a7fa2b02b8666702f58e785901012da4de5cf0be3eb2396ccb2607f3566d3734">https://raw.githubusercontent.com/arthurkowskii/ReaSkiiPicker-feed/main/ReaSkiiPicker/src/model.lua</source>
+        <source file="src/model.lua" hash="1220034da4c56b03e7145df86144c8c3aa1f53b08ece6685ec58e5242a3074c65b23">https://raw.githubusercontent.com/arthurkowskii/ReaSkiiPicker-feed/main/ReaSkiiPicker/src/model.lua</source>
         <source file="src/store.lua" hash="1220a11cc6fc2f743e4eb74b078a208248f1b401da8ce128f14a2e77422510675dd7">https://raw.githubusercontent.com/arthurkowskii/ReaSkiiPicker-feed/main/ReaSkiiPicker/src/store.lua</source>
-        <source file="src/ui.lua" hash="12204f9ff775fa3725464a35350c2417e09f63e32b31fb5b108e46f13a2e016c6863">https://raw.githubusercontent.com/arthurkowskii/ReaSkiiPicker-feed/main/ReaSkiiPicker/src/ui.lua</source>
+        <source file="src/ui.lua" hash="12205c2b4a8b05bc7b90cf2739851fbc80c8b8879b9323400de22a2edb6c1a3c819e">https://raw.githubusercontent.com/arthurkowskii/ReaSkiiPicker-feed/main/ReaSkiiPicker/src/ui.lua</source>
         <source file="vendor/json-LICENSE" hash="1220e91de14a15c126e70df8d30132529199211b47c5c899f82285a2ee943748f6f2">https://raw.githubusercontent.com/arthurkowskii/ReaSkiiPicker-feed/main/ReaSkiiPicker/vendor/json-LICENSE</source>
         <source file="vendor/json.lua" hash="12200eaccda57fabc0330736de25f45cf589821a42b5e0fe02e4e3125f7dc0bf2b7e">https://raw.githubusercontent.com/arthurkowskii/ReaSkiiPicker-feed/main/ReaSkiiPicker/vendor/json.lua</source>
       </version>
